@@ -136,8 +136,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="header-sub">Optimizon</div>
   <div class="header-spacer"></div>
   <span class="header-updated" id="last-updated"></span>
-  <span id="refresh-status" class="header-updated" style="display:none"></span>
-  <button class="header-btn" id="refresh-btn" onclick="autoRefresh()">↻ Refresh</button>
+  <button class="header-btn" onclick="requestRefresh()">↻ Refresh</button>
 </div>
 
 <div id="table-view"></div>
@@ -168,81 +167,11 @@ window.addEventListener('DOMContentLoaded', () => {
   showView('table');
 });
 
-async function autoRefresh() {
-  const btn = document.getElementById('refresh-btn');
-  const status = document.getElementById('refresh-status');
-  btn.disabled = true; btn.textContent = '⟳ Refreshing…';
-  status.style.display = 'none';
-
-  const REPO = 'mattwMPA/ICP', BRANCH = 'main';
-  const FOLDERS = ['Individual Personas', 'Meta Personas'];
-
-  function getRawText(res) {
-    if (!res) return '';
-    if (typeof res === 'string') return res;
-    if (Array.isArray(res)) return res.map(r => typeof r === 'string' ? r : r.text || r.content || '').join('');
-    if (typeof res === 'object') {
-      if (res.isError) return '';
-      for (const k of ['text','content','result','output']) if (res[k] !== undefined) return getRawText(res[k]);
-    }
-    return String(res);
-  }
-
-  try {
-    if (typeof window.cowork === 'undefined' || typeof window.cowork.callMcpTool !== 'function') {
-      throw new Error('no-cowork');
-    }
-
-    const newFiles = [];
-    for (const folder of FOLDERS) {
-      const apiUrl = 'https://api.github.com/repos/' + REPO + '/contents/' + encodeURIComponent(folder) + '?ref=' + BRANCH;
-      const listRes = await window.cowork.callMcpTool('mcp__workspace__web_fetch', { url: apiUrl });
-      if (listRes && listRes.isError) throw new Error('api-blocked');
-      const listText = getRawText(listRes);
-      let entries;
-      try { entries = JSON.parse(listText); } catch(e) { throw new Error('api-blocked'); }
-      if (!Array.isArray(entries)) throw new Error('api-blocked');
-
-      for (const entry of entries) {
-        if (!entry.name || !entry.name.endsWith('.md')) continue;
-        const rawUrl = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + encodeURIComponent(folder) + '/' + encodeURIComponent(entry.name);
-        const fileRes = await window.cowork.callMcpTool('mcp__workspace__web_fetch', { url: rawUrl });
-        if (fileRes && fileRes.isError) throw new Error('raw-blocked');
-        const content = getRawText(fileRes);
-        if (content) newFiles.push({ filename: entry.name, folder, content });
-      }
-    }
-
-    if (!newFiles.length) throw new Error('no-files');
-
-    // Preserve section orders / collapsed state for files that still exist
-    FILES = newFiles.map(parseFile);
-    FILES.forEach(f => { if (!sectionOrders[f.key]) sectionOrders[f.key] = f.sections.map((_,i)=>i); });
-    const ts = new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit'});
-    document.getElementById('last-updated').textContent = 'Updated ' + ts;
-    renderTable();
-    if (currentFileKey && currentView === 'detail') {
-      const f = FILES.find(x => x.key === currentFileKey);
-      if (f) renderDetail(f); else { goHome(); }
-    }
-    status.textContent = '✓ ' + newFiles.length + ' files loaded';
-    status.style.color = '#86efac'; status.style.display = 'inline';
-
-  } catch(e) {
-    // No popup — silent fallback
-    if (e.message === 'api-blocked' || e.message === 'raw-blocked') {
-      status.textContent = '⚠ Enable api.github.com + raw.githubusercontent.com in Settings → Capabilities';
-      status.style.color = '#fbbf24';
-    } else if (e.message === 'no-cowork') {
-      status.textContent = '⚠ Open in Cowork for live refresh';
-      status.style.color = '#fbbf24';
-    } else {
-      status.textContent = '⚠ Refresh failed';
-      status.style.color = '#f87171';
-    }
-    status.style.display = 'inline';
-  } finally {
-    btn.disabled = false; btn.textContent = '↻ Refresh';
+function requestRefresh() {
+  if (typeof sendPrompt === 'function') {
+    sendPrompt('Please update the ICP Viewer artifact with the latest files from the GitHub repo');
+  } else {
+    alert('To refresh: type "Update the ICP Viewer artifact" in the chat.');
   }
 }
 
@@ -412,7 +341,7 @@ function renderTable() {
   let html = `<div style="padding:24px;max-width:1100px;margin:0 auto">
     <div class="page-title">ICP Persona Library</div>
     <div class="page-subtitle">${FILES.length} persona file${FILES.length !== 1?'s':''} · Click any card to read in full</div>
-    <div class="refresh-note">↻ Click <strong>Refresh</strong> to fetch the latest files from GitHub. Requires <strong>api.github.com</strong> and <strong>raw.githubusercontent.com</strong> in Settings → Capabilities.</div>`;
+    <div class="refresh-note">↻ Click <strong>Refresh</strong> in the header to request an update when new files are added to GitHub.</div>`;
   if (individuals.length) html += `<div class="section-heading">👤 Individual Personas</div><div class="file-grid">${individuals.map(fileCardHtml).join('')}</div>`;
   if (metas.length) html += `<div class="section-heading">🗂 Meta Personas</div><div class="file-grid">${metas.map(fileCardHtml).join('')}</div>`;
   html += '</div>';
