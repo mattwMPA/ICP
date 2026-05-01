@@ -170,6 +170,8 @@ window.addEventListener('DOMContentLoaded', () => {
 function requestRefresh() {
   if (typeof sendPrompt === 'function') {
     sendPrompt('Please update the ICP Viewer artifact with the latest files from the GitHub repo');
+  } else {
+    alert('To refresh: type "Update the ICP Viewer artifact" in the chat.');
   }
 }
 
@@ -335,17 +337,13 @@ function fmt(t) {
 function renderTable() {
   const el = document.getElementById('table-view');
   const individuals = FILES.filter(f => f.folder === 'Individual Personas');
-  const metas = FILES.filter(f => f.folder === 'Meta Personas')
-    .sort((a, b) => {
-      const n = f => parseInt((f.filename.match(/-(\d{3})--/) || ['','999'])[1]);
-      return n(a) - n(b);
-    });
+  const metas = FILES.filter(f => f.folder === 'Meta Personas');
   let html = `<div style="padding:24px;max-width:1100px;margin:0 auto">
     <div class="page-title">ICP Persona Library</div>
     <div class="page-subtitle">${FILES.length} persona file${FILES.length !== 1?'s':''} · Click any card to read in full</div>
     <div class="refresh-note">↻ Click <strong>Refresh</strong> in the header to request an update when new files are added to GitHub.</div>`;
-  if (metas.length) html += `<div class="section-heading">🗂 Meta Personas</div><div class="file-grid">${metas.map(fileCardHtml).join('')}</div>`;
   if (individuals.length) html += `<div class="section-heading">👤 Individual Personas</div><div class="file-grid">${individuals.map(fileCardHtml).join('')}</div>`;
+  if (metas.length) html += `<div class="section-heading">🗂 Meta Personas</div><div class="file-grid">${metas.map(fileCardHtml).join('')}</div>`;
   html += '</div>';
   el.innerHTML = html;
   el.querySelectorAll('.file-card').forEach(c => c.addEventListener('click', () => {
